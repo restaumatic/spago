@@ -1,11 +1,21 @@
-module Spago.Command.Bundle where
+module Spago.Command.Bundle
+  ( run
+  , BundleEnv
+  , BundleOptions
+  ) where
 
 import Spago.Prelude
 
+import Data.Array as Array
+import Data.Array.NonEmpty as NonEmptyArray
+import Data.Array.NonEmpty.Internal (NonEmptyArray(..))
 import Node.Path as Path
+import PureScript.CST (RecoveredParserResult(..), parseModule)
+import PureScript.CST.Errors (printParseError)
+import PureScript.CST.Types as CSTT
 import Spago.Cmd as Cmd
-import Spago.Esbuild (Esbuild)
 import Spago.Config (BundlePlatform(..), BundleType(..), Workspace, WorkspacePackage)
+import Spago.Esbuild (Esbuild)
 
 type BundleEnv a =
   { esbuild :: Esbuild
@@ -71,6 +81,10 @@ run = do
       , "--loader:.node=file"
       , format
       ] <> opts.extraArgs <> minify <> sourceMap <> entrypoint <> nodePatch
+
+  -- Before we get into the actual bundling, we need to check if the module that is being bundled has a main function
+  -- TODO: get the graph, find the path of the module that is being bundled, call hasMain on it
+
   logInfo "Bundling..."
   logDebug $ "Running esbuild: " <> show args
   Cmd.exec esbuild.cmd args execOptions >>= case _ of
@@ -78,3 +92,51 @@ run = do
     Left err -> do
       logDebug $ show err
       die [ "Failed to bundle." ]
+
+-- Note: this is coming straight from https://github.com/purescm/purescm/blob/9b87bea57bf6a2d0f412807227a3feca6c37b88f/test/Utils.purs#L94
+-- | Returns `Right true` if the source code has this type signature
+-- | somewhere in it:
+-- | ```
+-- | main :: Effect Unit
+-- | ```
+-- |
+-- | If `Effect` or `Unit` are qualified by a module alias,
+-- | this will not return `true`.
+-- | ```
+-- | main :: Effect.Effect Prelude.Unit
+-- | ```
+hasMain :: String -> Either String Boolean
+hasMain sourceCode =
+  case parseModule sourceCode of
+    ParseSucceeded (CSTT.Module { body: CSTT.ModuleBody { decls } }) ->
+      pure $ Array.any isMain decls
+    ParseSucceededWithErrors _ errs ->
+      Left $ Array.intercalate "\n"
+        [ "Could not parse file."
+        , Array.intercalate "\n" $ map printPositionedError $ NonEmptyArray.toArray errs
+        ]
+    ParseFailed err ->
+      Left $ Array.intercalate "\n"
+        [ "Could not parse file."
+        , printPositionedError err
+        ]
+  where
+  printPositionedError err = Array.intercalate "\n"
+    [ ""
+    , "Position: " <> show err.position
+    , "Reason: " <> printParseError err.error
+    ]
+  isMain = case _ of
+    CSTT.DeclSignature
+      ( CSTT.Labeled
+          { label: CSTT.Name { name: CSTT.Ident "main" }
+          , value:
+              CSTT.TypeApp
+                (CSTT.TypeConstructor (CSTT.QualifiedName { name: CSTT.Proper "Effect" }))
+                ( NonEmptyArray
+                    [ CSTT.TypeConstructor (CSTT.QualifiedName { name: CSTT.Proper "Unit" })
+                    ]
+                )
+          }
+      ) -> true
+    _ -> false

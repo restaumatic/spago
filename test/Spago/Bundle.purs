@@ -37,3 +37,7 @@ spec = Spec.around withTempDir do
       checkFixture "bundle-module-map.js" (fixture "bundle-module-map.js")
       checkFixture "bundle-module-map.js.map" (fixture "bundle-module-map.js.map")
 
+    Spec.itOnly "can't bundle if the module chosen doesn't have a `main`" \{ spago, fixture } -> do
+      spago [ "init" ] >>= shouldBeSuccess
+      spago [ "bundle", "--bundle-type", "module", "--main", "Main", "--outfile", "bundle-module.js" ] >>=
+        shouldBeFailureErr (fixture "bundle-module-no-main.txt")
