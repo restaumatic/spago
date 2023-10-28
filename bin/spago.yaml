@@ -3,6 +3,8 @@ package:
   publish:
     version: 0.93.18
     license: BSD-3-Clause
+  build:
+    strict: true
   dependencies:
     - aff
     - optparse

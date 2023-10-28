@@ -1,5 +1,7 @@
 package:
   name: docs-search-client-halogen
+  build:
+    strict: true
   dependencies:
     - aff
     - aff-promise

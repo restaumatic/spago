@@ -6,6 +6,11 @@ package:
     location:
       githubOwner: purescript
       githubRepo: spago
+  build:
+    strict: true
+    censor_project_warnings:
+      - ImplicitQualifiedImportReExport
+      - ImplicitQualifiedImport
   dependencies:
     - aff
     - affjax
@@ -49,15 +54,13 @@ package:
     - unsafe-coerce
   test:
     main: Test.Spago
+    censor_test_warnings:
+      - ImplicitQualifiedImport
     dependencies:
       - spec
 workspace:
   build_opts:
-    strict: false
-    censor_warnings: project
-    censor_codes:
-      - ImplicitQualifiedImportReExport
-      - ImplicitQualifiedImport
+    censor_library_warnings: all
   lock: true
   package_set:
     registry: 20.0.1
