@@ -170,6 +170,7 @@ library
     , with-utf8
     , yaml
     , zlib
+    , random
 
 executable spago
   import: defaults

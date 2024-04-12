@@ -27,6 +27,7 @@ import qualified System.IO.Utf8       as Utf8
 import qualified Turtle
 import qualified System.Process       as Process
 import qualified Web.Browser          as Browser
+import           System.Random        (randomIO)
 
 import qualified Spago.Command.Path   as Path
 import qualified Spago.RunEnv         as Run
@@ -346,13 +347,13 @@ runBackend
 runBackend maybeBackend RunDirectories{ sourceDir, executeDir } moduleName maybeSuccessMessage failureMessage extraArgs = do
   logDebug $ display $ "Running with backend: " <> fromMaybe "nodejs" maybeBackend
   BuildOptions{ pursArgs } <- view (the @BuildOptions)
+  random <- randomIO @Int
   let
     postBuild = maybe (nodeAction $ Path.getOutputPath pursArgs) backendAction maybeBackend
-  build (Just postBuild)
-  where
     fromFilePath = Text.pack . Turtle.encodeString
-    runJsSource = fromFilePath (sourceDir Turtle.</> ".spago/run.js")
-    packageJson = fromFilePath (sourceDir Turtle.</> ".spago/package.json")
+    runScriptDir = sourceDir Turtle.</> (".spago/run-" <> Turtle.decodeString (show random))
+    runJsSource = fromFilePath (runScriptDir Turtle.</> "run.js")
+    packageJson = fromFilePath (runScriptDir Turtle.</> "package.json")
     nodeArgs = Text.intercalate " " $ map unBackendArg extraArgs
     esContents outputPath' =
       fold
@@ -386,7 +387,7 @@ runBackend maybeBackend RunDirectories{ sourceDir, executeDir } moduleName maybe
     nodeCmd isES Experimental | isES = "node --experimental-modules \"" <> runJsSource <> "\" " <> nodeArgs
     nodeCmd _ _ = "node \"" <> runJsSource <> "\" " <> nodeArgs
 
-    nodeAction outputPath' = do
+    nodeAction outputPath' = bracket_ (Turtle.mkdir runScriptDir) (Turtle.rmtree runScriptDir) $ do
       isES <- Purs.hasMinPursVersion "0.15.0-alpha-01"
       nodeVersion <- hasNodeEsSupport
       case (isES, nodeVersion) of
@@ -417,6 +418,7 @@ runBackend maybeBackend RunDirectories{ sourceDir, executeDir } moduleName maybe
         ExitSuccess   -> maybe (pure ()) (logInfo . display) maybeSuccessMessage
         ExitFailure n -> die [ display failureMessage <> "Backend " <> displayShow backend <> " exited with error:" <> repr n ]
 
+  build (Just postBuild)
 
 bundleWithEsbuild :: HasLogFunc env => WithMain -> WithSrcMap -> ModuleName -> TargetPath -> Platform -> Minify -> RIO env ()
 bundleWithEsbuild withMain srcMap (ModuleName moduleName) (TargetPath targetPath) platform minify = do
