@@ -39,8 +39,6 @@ jobs:
         include:
           - os: ubuntu-latest
             image: haskell:9.2.4
-          - os: macOS-latest
-          - os: windows-latest
     steps:
       - name: Set git to use LF
         run: |
@@ -118,25 +116,3 @@ jobs:
           asset_path: ./${{ runner.os }}.sha1
           asset_name: ${{ runner.os }}.sha1
           asset_content_type: text/plain
-
-  npm_publish:
-    name: Publish package on npm
-    needs: build_release
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-node@v2
-        with:
-          node-version: 18
-      - name: Publish to NPM
-        shell: bash
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          sed -e "s/NPM_VERSION/$(./scripts/get-version)/g" -i npm/package.json
-          sed -e "s/PACKAGE_VERSION/$(./scripts/get-version)/g" -i npm/install.js
-          cd npm
-          cp ../README.md ./README.md
-          cp ../CONTRIBUTING.md ./CONTRIBUTING.md
-          cp ../LICENSE ./LICENSE
-          npm publish --non-interactive --access public
