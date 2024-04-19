@@ -351,7 +351,7 @@ runBackend maybeBackend RunDirectories{ sourceDir, executeDir } moduleName maybe
   let
     postBuild = maybe (nodeAction $ Path.getOutputPath pursArgs) backendAction maybeBackend
     fromFilePath = Text.pack . Turtle.encodeString
-    runScriptDir = sourceDir Turtle.</> (".spago/run-" <> Turtle.decodeString (show random))
+    runScriptDir = sourceDir Turtle.</> Turtle.decodeString (".spago/run-" <> show random)
     runJsSource = fromFilePath (runScriptDir Turtle.</> "run.js")
     packageJson = fromFilePath (runScriptDir Turtle.</> "package.json")
     nodeArgs = Text.intercalate " " $ map unBackendArg extraArgs
